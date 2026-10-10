@@ -20,6 +20,16 @@ def test_timeline_sort_and_attribution():
     assert tl2[-1]["kind"] == "channel"
 
 
+def test_android_ms_vs_radio_seconds_ordering():
+    # Android received_time is epoch MILLISECONDS; radio timestamps are SECONDS.
+    # The radio message (10:00:10) must sort after the app message (10:00:00), not before.
+    app = [{"kind": "message", "source": "android-app", "time": 1760000000_000, "text": "app 10:00:00"}]
+    radio = [{"kind": "message", "source": "radio-flash", "timestamp": 1760000010, "text": "radio 10:00:10"}]
+    tl = report.build_timeline(app, radio)
+    assert [e["text"] for e in tl] == ["app 10:00:00", "radio 10:00:10"]
+    assert tl[0]["ts"] == 1760000000 and tl[1]["ts"] == 1760000010  # both in seconds
+
+
 def test_renderers():
     tl = report.build_timeline([{"kind": "message", "time": 100, "from": "!bb", "to": "^all",
                                  "text": "hi <b>", "channel": 0}])

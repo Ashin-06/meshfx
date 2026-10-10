@@ -52,7 +52,6 @@ def decode_proto(basename: str, data: bytes) -> dict:
 
 
 _TH_HDR = struct.Struct("<IBB")       # magic "THST", version, count
-_TH_ENTRY = struct.Struct("<IHB")     # NOTE: fields reordered below; see parse
 _PORTNUM = {v.number: v.name for v in portnums_pb2.PortNum.DESCRIPTOR.values}
 
 

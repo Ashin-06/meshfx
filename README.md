@@ -1,6 +1,6 @@
 # MeshFX: Forensics for Off-Grid LoRa Mesh Radios
 
-**Project 1 of 5** · Status: research complete, parser in progress, lab work not started
+**Project 1 of 5** · Status: research complete, parser built and tested (19 tests), lab work not started
 Research cut-off: 9 Oct 2026 (Meshtastic firmware `master@40a0178`, Android app `6630488`, iOS app `8425daa`)
 
 ## What this is
@@ -63,9 +63,13 @@ MeshFX answers these questions with:
 │   └── sources.md                 every source with access date
 ├── meshfx/                       Python package (read-only parsers)
 │   ├── cli.py                     `meshfx` command
+│   ├── flash.py                   ESP32 partition table + LittleFS v2 extraction
+│   ├── prefs.py                   decode /prefs + /backups protobufs, transmit history, MENC detect
 │   ├── msgstore.py                on-device message history + carving
+│   ├── apps.py                    Android/iOS companion-app DBs (read-only)
+│   ├── report.py                  merge into one timeline, attribution, JSON/CSV/HTML
 │   └── proto/                     generated bindings, meshtastic/protobufs @ 95c5f8c
-├── tests/                         pytest suite
+├── tests/                         pytest suite (19 tests)
 └── pyproject.toml
 ```
 
@@ -76,26 +80,44 @@ Planned: `lab/` (device inventory, hashes, scenario logs), `datasets/` (publishe
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -e .[test]   # Linux/macOS: .venv/bin/pip
 pytest -q
-meshfx msgs  Messages_default.msgs   # on-device message history
-meshfx carve spiffs.bin              # find message records anywhere in an image, including deleted ones
 ```
 
 Every command only reads its inputs. Run it on a hash-verified copy, never on original evidence.
 
+```bash
+meshfx parts    flash.bin                         # ESP32 partition table
+meshfx extract  flash.bin -o out/                 # pull files out of the LittleFS data partition
+meshfx decode   out/prefs/config.proto            # decode a stored prefs/backups file
+meshfx msgs     out/Messages_default.msgs         # on-device message history
+meshfx carve    flash.bin                         # message records anywhere in an image, incl. deleted
+meshfx app      meshtastic_database_<hash>        # Android/iOS companion-app DB
+meshfx timeline --flash flash.bin --app DB --format html > case.html   # one merged, attributed timeline
+```
+
 | Feature | Checked against | Status |
 |---|---|---|
-| `.msgs` parse + carve | records built from the firmware struct (`MessageStore.cpp`) | ✅ tests; ⏳ real device image is lab task L3 |
+| ESP32 partition table + LittleFS v2 extract | real 4 MB image built in tests | ✅ tests; ⏳ real device image is lab task L3 |
+| prefs/backups protobuf decode | round-trip against the bindings | ✅ tests |
+| transmit-history + MENC detect | firmware struct / magic | ✅ tests |
+| `.msgs` parse + carve | records built from `MessageStore.cpp` struct | ✅ tests; ⏳ real device image is lab task L3 |
+| Android/iOS DB read (read-only, incl. write-rejection) | synthetic Room + Core Data DBs | ✅ tests; ⏳ real extraction is lab task L10/L11 |
+| merged timeline + attribution + reports | mixed ms/s ordering, HTML escaping | ✅ tests |
 
-Out of scope for the tool: decrypting captured radio traffic and verifying signatures. The research docs describe both; the tool parses only data recovered from a device.
+### Known gaps (by design or pending)
+- **nRF52 LittleFS v1** (128-byte blocks) and the **warm-node ring** at `0xEA000`: `littlefs-python` reads v2 only; needs a v1 reader. Until then, `carve` still finds message records in an nRF52 dump.
+- **Decrypting captured traffic / verifying signatures**: out of scope for the tool. Attribution reads the stored `xeddsa_signed` flag; it does not re-verify signatures. The research docs cover the crypto.
+- **`device.proto` `rx_text_message`** (last text on screenless radios): not yet surfaced.
+- **Lab validation**: every parser is tested against synthetic data built from the firmware structs; none has been run on a real seized device yet (phase 1).
 
 ## Roadmap
 
 | Phase | Deliverable | Needs |
 |---|---|---|
 | 0 ✅ | Research, evidence map | this repo |
+| 3 ✅ (ESP32) | Parser: ESP32 LittleFS v2, all prefs/backups protobufs, `.msgs`+carve, app databases → one attributed timeline | done; nRF52 v1 + warm ring pending |
 | 1 | Lab build: 4 radios + 2 phones, populate per [08](research/08-experiment-plan.md) | ~$250 hardware |
 | 2 | Acquisition SOPs proven on ESP32 + nRF52; hash-verified images | debug probe |
-| 3 | Full parser: LittleFS v1/v2, all prefs protobufs, warm ring, app databases → one timeline | Python, protobufs |
+| 3b | nRF52 LittleFS v1 reader + warm-node ring | Python |
 | 4 | Anti-forensics study: delete, reset node DB, factory reset, reflash | lab |
 | 5 | RF/MQTT correlation + attribution confidence scoring | RTL-SDR |
 | 6 | Paper (DFRWS / FSI: Digital Investigation) + public reference dataset | – |

@@ -24,10 +24,11 @@ def attribution(event: dict) -> str:
 
 
 def _ts(event: dict):
+    """Normalised epoch seconds. Android received_time is milliseconds; radio and iOS are seconds."""
     for k in ("time", "timestamp", "last_heard", "epoch_seconds"):
         v = event.get(k)
         if isinstance(v, int) and v > 0:
-            return v
+            return v // 1000 if v > 10**11 else v  # >~2001 in ms => treat as ms
     return None
 
 
