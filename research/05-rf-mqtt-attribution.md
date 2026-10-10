@@ -23,9 +23,8 @@ Decoded frames are a derived product. The IQ file is the evidence.
 - RSSI/SNR/time of arrival; with ≥3 synchronised receivers, transmitter **localisation** (research extension)
 
 ### With keys:
-- **Channel traffic:** `meshfx.py decrypt <hex> --psk <base64>`
-- **PKI DMs:** a seized radio's `config.proto` private key decrypts **every captured DM to or from that node, including old ones**, because there is no forward secrecy. Use `meshfx.py decrypt-pki`.
-- **AEAD channels (2.8.1+):** to implement once the CCM nonce layout is documented from `encryptPacketCCM`
+- Captured payloads can only be read by whoever holds the channel key or a node's private key; with no forward secrecy, keys recovered later also open older captures (see [02 §6](02-meshtastic-internals.md#6-cryptography)).
+- Decryption is a matter for the examiner's lawful authority and their own tooling. **It is out of scope for the `meshfx` tool**, which only parses data recovered from a device.
 
 ## 2. MQTT
 
@@ -65,6 +64,6 @@ Extra checks:
 | Android `discovery_session.user_latitude/longitude` | **the phone's own** GPS fix during a scan | strong for the phone's location |
 
 ## 5. Lab tasks from this file
-- **L1**: capture own-device traffic with an RTL-SDR and decrypt it with meshfx. This is the first live check of the channel-decrypt path.
+- **L1**: capture own-device traffic with an RTL-SDR and record the cleartext headers (hops, relays, channel hash) for the lab timeline.
 - **L6**: build a candidate channel-hash dictionary (presets × default-key indices 1–10).
 - **L7**: forge a channel message in the lab (own devices) and show that the stored artifacts look identical to a genuine one, so the attribution levels matter.

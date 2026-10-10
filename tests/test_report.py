@@ -45,8 +45,9 @@ def test_from_flash_integration(tmp_path):
     # reuse the ESP32 image builder, but put real content in the files
     import sys
     sys.path.insert(0, "tests")
-    from test_flash import FLASH_SIZE, SPIFFS_OFF, SPIFFS_SIZE, _entry
     from littlefs import LittleFS
+    from test_flash import FLASH_SIZE, SPIFFS_OFF, SPIFFS_SIZE, _entry
+
     from meshfx import flash as flashmod
     from meshfx.msgstore import BROADCAST, MSG_REC
     from meshfx.proto.meshtastic import deviceonly_pb2

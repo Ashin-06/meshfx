@@ -23,7 +23,7 @@ The design follows the controlled-experiment pattern of recent DFRWS device pape
 
 | ID | Task | Produces |
 |---|---|---|
-| L1 | RTL-SDR capture of lab traffic, decrypted with meshfx | first live proof of the channel-decrypt path |
+| L1 | RTL-SDR capture of own lab traffic; record cleartext headers | RF observations to set against device artifacts |
 | L2 | acquisition SOP validation per chip (ESP32, nRF52 SWD, nRF52 UF2, RP2040) | proven SOPs + hash logs |
 | L3 | real `.msgs` + full images from each device | parser test corpus |
 | L4 | **version sweep**: flash 2.5.x, 2.6.x, 2.7.26, 2.8.1; record file layout per version; pin when `MessageStore` persistence first shipped | version → format table |

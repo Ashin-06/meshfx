@@ -28,7 +28,7 @@ Firmware: `meshtastic/firmware master@40a0178` (9 Oct 2026). Docs: meshtastic.or
 
 Why LittleFS matters:
 - **copy-on-write** with metadata pairs: an old version of a file survives until its blocks are reused
-- **v1 vs v2** have different on-disk formats; `littlefs-python` reads v2 only, so nRF52 needs its own v1 reader (planned `tool/lfs/`)
+- **v1 vs v2** have different on-disk formats; `littlefs-python` reads v2 only, so nRF52 needs its own v1 reader (not part of the current tool; see README known gaps)
 - nRF52's 128-byte blocks mean a 239-byte message record **always spans blocks**, and v1 CTZ skip-list pointers are interleaved, so naive carving fails there
 
 ## 3. Files on the radio (current source)
@@ -130,7 +130,7 @@ The 16-byte header is **always in cleartext**, even when the payload is encrypte
 | Admin | PKI plus a session passkey valid 5 min; up to 3 admin keys | – | – | – |
 
 - There is no forward secrecy (per the docs). **Anyone who later gets a channel PSK or a private key can decrypt old captures.** This matters for evidence: captures made before seizure become readable after it.
-- `meshfx.py` implements CTR and PKI decrypt; PKI is verified on the firmware's own packet vector ([tool/test_meshfx.py](../tool/test_meshfx.py)).
+- The `meshfx` tool does not decrypt captured traffic: it parses data recovered from a device (see README, "Tool"). The early prototype that did is kept only in the git history.
 - **Lockdown builds** (`MESHTASTIC_ENABLE_LOCKDOWN`, nRF52):
   - key hierarchy: FICR device IDs + passphrase → KEK → DEK (`/prefs/.dek`)
   - each proto file is stored as `MENC` + 13-byte nonce + length + AES-128-CTR ciphertext + HMAC-SHA256

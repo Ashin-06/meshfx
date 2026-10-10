@@ -6,7 +6,12 @@ import struct
 
 from google.protobuf.json_format import MessageToDict
 
-from meshfx.proto.meshtastic import device_ui_pb2, deviceonly_pb2, localonly_pb2, portnums_pb2
+from meshfx.proto.meshtastic import (
+    device_ui_pb2,
+    deviceonly_pb2,
+    localonly_pb2,
+    portnums_pb2,
+)
 
 # basename -> protobuf message class (NodeDB.h constants)
 PROTO_FILES = {
