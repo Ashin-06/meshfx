@@ -1,6 +1,6 @@
 # MeshFX: Forensics for Off-Grid LoRa Mesh Radios
 
-**Project 1 of 5** · Status: research complete, proof-of-concept verified, lab work not started
+**Project 1 of 5** · Status: research complete, parser in progress, lab work not started
 Research cut-off: 9 Oct 2026 (Meshtastic firmware `master@40a0178`, Android app `6630488`, iOS app `8425daa`)
 
 ## What this is
@@ -61,43 +61,38 @@ MeshFX answers these questions with:
 │   ├── 08-experiment-plan.md      lab design, scenarios, hypotheses H1–H12, metrics
 │   ├── 09-paper-outline.md        target venue and paper skeleton
 │   └── sources.md                 every source with access date
-└── tool/
-    ├── meshfx.py                  PoC: header parse, channel + PKI decrypt, message file parse, carving
-    └── test_meshfx.py             known-answer tests (firmware's own vectors)
+├── meshfx/                       Python package (read-only parsers)
+│   ├── cli.py                     `meshfx` command
+│   ├── msgstore.py                on-device message history + carving
+│   └── proto/                     generated bindings, meshtastic/protobufs @ 95c5f8c
+├── tests/                         pytest suite
+└── pyproject.toml
 ```
 
-Planned, created when the work starts (not before):
-`tool/lfs/` (LittleFS v1 reader for nRF52), `tool/apps/` (Android/iOS parsers, or an ALEAPP/iLEAPP plugin), `lab/` (device inventory, hashes, scenario logs), `datasets/` (published reference images).
+Planned: `lab/` (device inventory, hashes, scenario logs), `datasets/` (published reference images).
 
-## Proof of concept
-
-Requires Python 3.10+ and `pip install cryptography`.
+## Tool
 
 ```bash
-cd tool
-python test_meshfx.py
-python meshfx.py header  <hex>                 # parse the 16-byte cleartext header
-python meshfx.py decrypt <hex> --psk AQ==      # channel packet (default public key)
-python meshfx.py decrypt-pki <hex> --priv <hex> --pub <hex>
-python meshfx.py msgs  Messages_default.msgs   # on-device message history
-python meshfx.py carve spiffs.bin              # find message records, including deleted ones
+python -m venv .venv && .venv/Scripts/pip install -e .[test]   # Linux/macOS: .venv/bin/pip
+pytest -q
+meshfx msgs  Messages_default.msgs   # on-device message history
+meshfx carve spiffs.bin              # find message records anywhere in an image, including deleted ones
 ```
 
-Verification status:
+Every command only reads its inputs. Run it on a hash-verified copy, never on original evidence.
 
-| Function | Checked against | Status |
+| Feature | Checked against | Status |
 |---|---|---|
-| PKI DM decrypt | firmware `test_PKC` (a real 38-byte radio packet) | ✅ exact match |
-| AES-CTR primitive | RFC 3686 vector used by the firmware tests | ✅ |
-| Default-key expansion + channel hash | well-known LongFast hash = 8 | ✅ |
-| Channel decrypt nonce | firmware `initNonce()` source + two CTF write-ups | ✅ round-trip; ⏳ live capture is lab task L1 |
-| `.msgs` parse + carve | synthetic records built from the firmware struct | ✅; ⏳ real device image is lab task L3 |
+| `.msgs` parse + carve | records built from the firmware struct (`MessageStore.cpp`) | ✅ tests; ⏳ real device image is lab task L3 |
+
+Out of scope for the tool: decrypting captured radio traffic and verifying signatures. The research docs describe both; the tool parses only data recovered from a device.
 
 ## Roadmap
 
 | Phase | Deliverable | Needs |
 |---|---|---|
-| 0 ✅ | Research, evidence map, PoC | this repo |
+| 0 ✅ | Research, evidence map | this repo |
 | 1 | Lab build: 4 radios + 2 phones, populate per [08](research/08-experiment-plan.md) | ~$250 hardware |
 | 2 | Acquisition SOPs proven on ESP32 + nRF52; hash-verified images | debug probe |
 | 3 | Full parser: LittleFS v1/v2, all prefs protobufs, warm ring, app databases → one timeline | Python, protobufs |
