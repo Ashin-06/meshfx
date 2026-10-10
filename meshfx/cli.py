@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-from meshfx import flash, msgstore, prefs
+from meshfx import apps, flash, msgstore, prefs
 
 
 def _lines(rows):
@@ -24,6 +24,8 @@ def main(argv=None):
     ex.add_argument("-o", "--out", help="write files to this directory (default: just list them)")
     dc = sub.add_parser("decode", help="decode a stored /prefs or /backups file (.proto or transmit_history.dat)")
     dc.add_argument("file")
+    ap = sub.add_parser("app", help="read an Android/iOS companion-app database (read-only)")
+    ap.add_argument("db")
     a = p.parse_args(argv)
 
     if a.cmd in ("msgs", "carve"):
@@ -51,6 +53,8 @@ def main(argv=None):
             sys.exit(f"don't know how to decode {base}; known: {', '.join(prefs.PROTO_FILES)}, "
                      "transmit_history.dat")
         print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
+    elif a.cmd == "app":
+        _lines(apps.read(a.db))
 
 
 if __name__ == "__main__":
