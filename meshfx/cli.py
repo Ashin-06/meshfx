@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-from meshfx import flash, msgstore
+from meshfx import flash, msgstore, prefs
 
 
 def _lines(rows):
@@ -22,6 +22,8 @@ def main(argv=None):
     ex = sub.add_parser("extract", help="extract the LittleFS data partition of an ESP32 flash dump")
     ex.add_argument("image")
     ex.add_argument("-o", "--out", help="write files to this directory (default: just list them)")
+    dc = sub.add_parser("decode", help="decode a stored /prefs or /backups file (.proto or transmit_history.dat)")
+    dc.add_argument("file")
     a = p.parse_args(argv)
 
     if a.cmd in ("msgs", "carve"):
@@ -38,6 +40,17 @@ def main(argv=None):
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as f:
                     f.write(data)
+    elif a.cmd == "decode":
+        data = open(a.file, "rb").read()
+        base = os.path.basename(a.file)
+        if base == "transmit_history.dat":
+            out = prefs.decode_transmit_history(data)
+        elif base in prefs.PROTO_FILES:
+            out = prefs.decode_proto(base, data)
+        else:
+            sys.exit(f"don't know how to decode {base}; known: {', '.join(prefs.PROTO_FILES)}, "
+                     "transmit_history.dat")
+        print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
 
 
 if __name__ == "__main__":
