@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-from meshfx import apps, flash, msgstore, prefs
+from meshfx import apps, flash, msgstore, prefs, report
 
 
 def _lines(rows):
@@ -26,6 +26,10 @@ def main(argv=None):
     dc.add_argument("file")
     ap = sub.add_parser("app", help="read an Android/iOS companion-app database (read-only)")
     ap.add_argument("db")
+    tl = sub.add_parser("timeline", help="merge a flash dump and/or app DBs into one timeline")
+    tl.add_argument("--flash", help="ESP32 flash dump")
+    tl.add_argument("--app", action="append", default=[], help="companion-app DB (repeatable)")
+    tl.add_argument("--format", choices=["json", "csv", "html"], default="json")
     a = p.parse_args(argv)
 
     if a.cmd in ("msgs", "carve"):
@@ -55,6 +59,12 @@ def main(argv=None):
         print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
     elif a.cmd == "app":
         _lines(apps.read(a.db))
+    elif a.cmd == "timeline":
+        if not a.flash and not a.app:
+            p.error("timeline needs --flash and/or --app")
+        events = report.collect(a.flash, a.app)
+        renderer = {"json": report.to_json, "csv": report.to_csv, "html": report.to_html}[a.format]
+        print(renderer(events))
 
 
 if __name__ == "__main__":
