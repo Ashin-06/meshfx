@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 from meshfx import apps, flash, msgstore, prefs, report
 
@@ -30,24 +31,33 @@ def main(argv=None):
     tl.add_argument("--flash", help="ESP32 flash dump")
     tl.add_argument("--app", action="append", default=[], help="companion-app DB (repeatable)")
     tl.add_argument("--format", choices=["json", "csv", "html"], default="json")
+    sv = sub.add_parser("serve", help="analysis API (settings: MESHFX_* environment variables)")
+    sv.add_argument("--host", help="default MESHFX_HOST or 127.0.0.1; any other address needs API keys")
+    sv.add_argument("--port", type=int, help="default MESHFX_PORT or 8101")
+    sub.add_parser("migrate", help="apply database migrations to MESHFX_DATABASE_URL")
     a = p.parse_args(argv)
+    if a.cmd in ("serve", "migrate"):
+        return _service(a)
 
     if a.cmd in ("msgs", "carve"):
-        data = open(a.file if a.cmd == "msgs" else a.image, "rb").read()
+        data = Path(a.file if a.cmd == "msgs" else a.image).read_bytes()
         _lines(msgstore.read_msgs(data) if a.cmd == "msgs" else msgstore.carve_msgs(data))
     elif a.cmd == "parts":
-        _lines(flash.parse_partition_table(open(a.image, "rb").read()))
+        _lines(flash.parse_partition_table(Path(a.image).read_bytes()))
     elif a.cmd == "extract":
-        files = flash.extract_files(open(a.image, "rb").read())
+        files = flash.extract_files(Path(a.image).read_bytes())
         for path, data in sorted(files.items()):
             print(f"{len(data):8d}  {path}")
             if a.out:
-                dest = os.path.join(a.out, path.lstrip("/"))
+                root = os.path.realpath(a.out)
+                dest = os.path.realpath(os.path.join(root, path.lstrip("/\\")))
+                if os.path.commonpath([root, dest]) != root:  # names come from the seized image
+                    sys.exit(f"refusing to write {path!r}: it resolves outside {a.out}")
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as f:
                     f.write(data)
     elif a.cmd == "decode":
-        data = open(a.file, "rb").read()
+        data = Path(a.file).read_bytes()
         base = os.path.basename(a.file)
         if base == "transmit_history.dat":
             out = prefs.decode_transmit_history(data)
@@ -65,6 +75,34 @@ def main(argv=None):
         events = report.collect(a.flash, a.app)
         renderer = {"json": report.to_json, "csv": report.to_csv, "html": report.to_html}[a.format]
         print(renderer(events))
+
+
+def _service(a) -> int:
+    import os
+
+    from meshfx import db, ops
+
+    if a.cmd == "serve":
+        for flag, var in (("host", "MESHFX_HOST"), ("port", "MESHFX_PORT")):
+            if getattr(a, flag) is not None:
+                os.environ[var] = str(getattr(a, flag))
+    try:
+        settings = ops.load_settings()  # fail here, before uvicorn, with a readable message
+    except ops.ConfigError as e:
+        print(f"configuration error: {e}", file=sys.stderr)
+        return 1
+    if a.cmd == "migrate":
+        print(*(db.migrate(db.engine(settings.database_url)) or ["up to date"]), sep="\n")
+        return 0
+    import uvicorn
+
+    ops.setup_logging(settings.log_level)
+    try:
+        uvicorn.run("meshfx.api:app", host=settings.host, port=settings.port, log_config=None, access_log=False)
+    except ops.ConfigError as e:  # checks the API module makes when it loads
+        print(f"configuration error: {e}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

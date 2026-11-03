@@ -59,8 +59,19 @@ def test_read_only_cannot_write(tmp_path):
     conn = apps.open_ro(str(db))
     try:
         conn.execute("DELETE FROM packet")
-        assert False, "read-only connection must reject writes"
+        raise AssertionError("read-only connection must reject writes")
     except sqlite3.OperationalError:
         pass
     finally:
         conn.close()
+
+
+def test_hostile_ios_column_names(tmp_path):
+    p = tmp_path / "evil.sqlite"
+    c = sqlite3.connect(p)
+    c.execute('CREATE TABLE ZNODEINFOENTITY (Z_PK INTEGER, "ZNUM" INTEGER, "x"" FROM sqlite_master --NUM" TEXT)')
+    c.execute("INSERT INTO ZNODEINFOENTITY VALUES (1, 2882400018, 'n')")
+    c.commit()
+    c.close()
+    rows = apps.read(str(p))
+    assert rows and all(r["kind"] == "node" for r in rows)

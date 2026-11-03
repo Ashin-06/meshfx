@@ -50,6 +50,6 @@ def test_no_data_partition_raises():
     img[flash.PART_TABLE_OFFSET:flash.PART_TABLE_OFFSET + 32] = _entry(0x00, 0x10, 0x10000, 0x250000, "app0")
     try:
         flash.extract_files(bytes(img))
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError:
         pass

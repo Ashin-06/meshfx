@@ -55,7 +55,10 @@ def test_from_flash_integration(tmp_path):
     fs = LittleFS(block_size=4096, block_count=SPIFFS_SIZE // 4096)
     fs.mkdir("/prefs")
     db = deviceonly_pb2.NodeDatabase()
-    n = db.nodes.add(); n.num = 0xA1B2C3D4; n.long_name = "Alice"; n.last_heard = 1760000000
+    n = db.nodes.add()
+    n.num = 0xA1B2C3D4
+    n.long_name = "Alice"
+    n.last_heard = 1760000000
     with fs.open("/prefs/nodes.proto", "wb") as f:
         f.write(db.SerializeToString())
     t = b"hello from radio"

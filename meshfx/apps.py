@@ -10,7 +10,14 @@ import sqlite3
 
 def open_ro(path: str) -> sqlite3.Connection:
     """Open a SQLite DB read-only and immutable (no writes, no journal creation)."""
-    return sqlite3.connect(f"file:{path}?mode=ro&immutable=1", uri=True)
+    conn = sqlite3.connect(f"file:{path}?mode=ro&immutable=1", uri=True)
+    conn.execute("PRAGMA trusted_schema = OFF")  # a seized database's views and triggers can't call functions
+    return conn
+
+
+def _q(name: str) -> str:
+    """A column name from the evidence file's own schema, quoted as an SQL identifier."""
+    return '"' + name.replace('"', '""') + '"'
 
 
 def _tables(conn) -> set[str]:
@@ -18,7 +25,7 @@ def _tables(conn) -> set[str]:
 
 
 def _cols(conn, table: str) -> list[str]:
-    return [r[1] for r in conn.execute(f"PRAGMA table_info('{table}')")]
+    return [r[1] for r in conn.execute(f"PRAGMA table_info('{table}')")]  # nosec B608 - fixed table names only
 
 
 def detect(conn) -> str | None:
@@ -40,7 +47,7 @@ def _nodenum(v):
 
 def _dicts(conn, table):
     """Yield each row of a table as a {column: value} dict, tolerant of schema version."""
-    cur = conn.execute(f"SELECT * FROM {table}")
+    cur = conn.execute(f"SELECT * FROM {table}")  # nosec B608 - fixed table names only
     cols = [c[0] for c in cur.description]
     for r in cur:
         yield dict(zip(cols, r))
@@ -87,7 +94,7 @@ def read_ios(conn) -> list[dict]:
         ncols = _cols(conn, "ZNODEINFOENTITY")
         numcol = next((c for c in ncols if c.endswith("NUM")), None)
         if numcol:
-            for pk, num in conn.execute(f"SELECT Z_PK, {numcol} FROM ZNODEINFOENTITY"):
+            for pk, num in conn.execute(f"SELECT Z_PK, {_q(numcol)} FROM ZNODEINFOENTITY"):  # nosec B608 - quoted identifier
                 pk_to_num[pk] = num
     if "ZMESSAGEENTITY" in t:
         mcols = _cols(conn, "ZMESSAGEENTITY")
@@ -99,8 +106,8 @@ def read_ios(conn) -> list[dict]:
             "time": "MESSAGETIMESTAMP", "text": "MESSAGEPAYLOAD", "channel": "CHANNEL",
             "portnum": "PORTNUM", "frm": "FROMUSER", "to": "TOUSER",
         }.items() if col(s)}
-        names = ",".join(sel.values())
-        for r in conn.execute(f"SELECT {names} FROM ZMESSAGEENTITY"):
+        names = ",".join(_q(c) for c in sel.values())
+        for r in conn.execute(f"SELECT {names} FROM ZMESSAGEENTITY"):  # nosec B608 - quoted identifiers
             d = dict(zip(sel.keys(), r))
             rows.append({
                 "source": "ios-app", "kind": "message",
@@ -111,10 +118,10 @@ def read_ios(conn) -> list[dict]:
             })
     if "ZNODEINFOENTITY" in t:
         ncols = _cols(conn, "ZNODEINFOENTITY")
-        want = {c for c in ncols if c.endswith(("NUM", "LASTHEARD"))}
+        want = [c for c in ncols if c.endswith(("NUM", "LASTHEARD"))]
         if want:
-            sel = ",".join(want)
-            for r in conn.execute(f"SELECT {sel} FROM ZNODEINFOENTITY"):
+            sel = ",".join(_q(c) for c in want)
+            for r in conn.execute(f"SELECT {sel} FROM ZNODEINFOENTITY"):  # nosec B608 - quoted identifiers
                 d = dict(zip(want, r))
                 num = next((v for k, v in d.items() if k.endswith("NUM")), None)
                 rows.append({

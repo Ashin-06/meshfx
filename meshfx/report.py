@@ -8,6 +8,7 @@ import html
 import io
 import json
 import os
+from pathlib import Path
 
 from meshfx import apps, flash, msgstore, prefs
 
@@ -85,7 +86,7 @@ def build_timeline(*event_lists) -> list[dict]:
 def collect(flash_path: str | None = None, app_paths: list[str] | None = None) -> list[dict]:
     lists = []
     if flash_path:
-        lists.append(from_flash(open(flash_path, "rb").read()))
+        lists.append(from_flash(Path(flash_path).read_bytes()))
     for ap in app_paths or []:
         lists.append(apps.read(ap))
     return build_timeline(*lists)
