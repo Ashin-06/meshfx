@@ -1,6 +1,6 @@
 # MeshFX: Forensics for Off-Grid LoRa Mesh Radios
 
-**Project 1 of 5** · Status: research complete, parser built and tested (19 tests), lab work not started
+**Project 1 of 5** · Status: research complete, parser and analysis API built and tested (33 tests), lab work not started
 Research cut-off: 9 Oct 2026 (Meshtastic firmware `master@40a0178`, Android app `6630488`, iOS app `8425daa`)
 
 ## What this is
@@ -62,6 +62,8 @@ MeshFX answers these questions with:
 │   ├── 09-paper-outline.md        target venue and paper skeleton
 │   └── sources.md                 every source with access date
 ├── meshfx/                       Python package (read-only parsers)
+│   ├── api.py                     analysis API with a log of every analysis
+│   ├── ops.py, db.py              settings, API keys, limits, logs, metrics; database and migrations
 │   ├── cli.py                     `meshfx` command
 │   ├── flash.py                   ESP32 partition table + LittleFS v2 extraction
 │   ├── prefs.py                   decode /prefs + /backups protobufs, transmit history, MENC detect
@@ -69,7 +71,8 @@ MeshFX answers these questions with:
 │   ├── apps.py                    Android/iOS companion-app DBs (read-only)
 │   ├── report.py                  merge into one timeline, attribution, JSON/CSV/HTML
 │   └── proto/                     generated bindings, meshtastic/protobufs @ 95c5f8c
-├── tests/                         pytest suite (19 tests)
+├── docs/                          threat model, runbook
+├── tests/                         pytest suite (33 tests)
 └── pyproject.toml
 ```
 
@@ -78,7 +81,7 @@ Planned: `lab/` (device inventory, hashes, scenario logs), `datasets/` (publishe
 ## Tool
 
 ```bash
-python -m venv .venv && .venv/Scripts/pip install -e .[test]   # Linux/macOS: .venv/bin/pip
+python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.lock -e .   # Linux/macOS: .venv/bin/pip
 pytest -q
 ```
 
@@ -109,6 +112,35 @@ meshfx timeline --flash flash.bin --app DB --format html > case.html   # one mer
 - **`device.proto` `rx_text_message`** (last text on screenless radios): not yet surfaced.
 - **Lab validation**: every parser is tested against synthetic data built from the firmware structs; none has been run on a real seized device yet (phase 1).
 
+## Analysis API
+
+`meshfx serve` (or the container image, `docker build -t meshfx .`, see [docs/runbook.md](docs/runbook.md)) puts the parsers behind an API.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /v1/flash?format=json\|csv\|html` | an ESP32 flash dump sent as the body: partition table, every file with its SHA-256, and the timeline |
+| `POST /v1/app` | an Android or iOS companion-app database sent as the body: messages and nodes |
+| `POST /v1/carve` | any raw image sent as the body: message records found anywhere in it, including deleted ones |
+| `GET /v1/analyses`, `/v1/analyses/{id}` | the log: who submitted which input (by SHA-256), what was found |
+| `GET /healthz`, `/readyz`, `/metrics` | health, readiness and Prometheus metrics |
+
+Evidence is not stored. App databases are opened read-only, immutable and with `trusted_schema = OFF`. API keys carry a role: `examiner`, `viewer`, `monitor`. Create one with `python -m meshfx.ops keygen`.
+
+| Variable | Purpose |
+|---|---|
+| `MESHFX_ENV=production` | refuse to start without hashed API keys and a database |
+| `MESHFX_API_KEYS` / `MESHFX_KEYS_FILE` | hashed API keys with roles |
+| `MESHFX_DATABASE_URL` | the analysis log: `sqlite:///...` or `postgresql://...` |
+
+## Limitations
+
+- Every parser is tested on synthetic data built from the firmware structs; none has been run on a real seized device yet.
+- nRF52 radios (LittleFS v1) can only be carved, not extracted.
+- Attribution reads the stored signature flag; it does not re-verify signatures.
+- The analysis log records input hashes but is not signed or hash-chained, the methods have not been tested in court, and the code has not had an independent security review.
+
+See [SECURITY.md](SECURITY.md) and [docs/threat-model.md](docs/threat-model.md).
+
 ## Roadmap
 
 | Phase | Deliverable | Needs |
@@ -138,4 +170,8 @@ meshfx timeline --flash flash.bin --app DB --format html > case.html   # one mer
 
 ## Ethics in one line
 
-Lab work uses only our own devices on our own channels. Never decrypt or keep third-party traffic beyond what a lawful process allows. Details in [research/07](research/07-legal-ethics.md).
+Lab work uses only the project's own devices on its own channels. Never decrypt or keep third-party traffic beyond what a lawful process allows. Details in [research/07](research/07-legal-ethics.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
