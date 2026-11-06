@@ -49,7 +49,7 @@ def read_msgs(data: bytes) -> list[dict]:
 def carve_msgs(img: bytes) -> list[dict]:
     """Find StoredMessageRecords anywhere in a raw image, including freed filesystem blocks.
 
-    ponytail: byte-by-byte scan with cheap early exits; fine for 8-16 MB dumps. Records split
+    Byte-by-byte scan with cheap early exits; fine for 8-16 MB dumps. Records split
     across filesystem blocks are missed - needs a filesystem-aware pass.
     """
     hits, size = [], MSG_REC.size
