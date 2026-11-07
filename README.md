@@ -82,7 +82,7 @@ Planned: `lab/` (device inventory, hashes, scenario logs), `datasets/` (publishe
 
 ```bash
 python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.lock -e .   # Linux/macOS: .venv/bin/python
-pytest -q
+.venv/Scripts/python -m pytest -q
 ```
 
 Every command only reads its inputs. Run it on a hash-verified copy, never on original evidence.
